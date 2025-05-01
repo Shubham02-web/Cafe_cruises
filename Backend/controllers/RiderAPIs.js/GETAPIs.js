@@ -1,22 +1,29 @@
 import connection from "../../config/db.js";
 
 export const getTripDetails = async (req, res) => {
-  connection.query(
-    "SELECT * FROM upcoming_rides where cityId = ? order by createad_At desc",
-    [req.params.cityId],
-    (err, trips) => {
-      if (err)
-        return res.status(500).json({
-          success: false,
-          message:
-            "Error in getTrip Details while geting Upcoming rides details" +
-            err.message,
+  try {
+    connection.query(
+      "SELECT * FROM upcoming_rides where cityId = ? order by id desc ",
+      [req.params.cityId],
+      (err, trips) => {
+        if (err)
+          return res.status(500).json({
+            success: false,
+            message:
+              "Error in getTrip Details while geting Upcoming rides details" +
+              err.message,
+          });
+        res.status(200).json({
+          upcomingTrips: trips,
         });
-      res.status(200).json({
-        upcomingTrips: trips,
-      });
-    }
-  );
+      }
+    );
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error in getTrip Details" + error.message,
+    });
+  }
 };
 
 export const getUpcomingTripById = (req, res) => {

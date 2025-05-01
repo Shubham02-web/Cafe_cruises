@@ -9,52 +9,57 @@ import generateOTP from "../../middlewares/OTPGenrator.js";
 import mailApi from "../../middlewares/MailAPI.js";
 
 export const AdminRegister = async (req, res) => {
-  const { firstName, lastName, mobileNumber, email, password } = req.body;
+  const { firstName, lastName, mobileNumber, email, password, bio } = req.body;
 
-  if (!firstName || !lastName || !mobileNumber || !email || !password) {
+  if (!firstName || !lastName || !mobileNumber || !email || !password || !bio) {
     return res.status(400).json({ message: "All fields are required." });
   }
 
   let role = "admin";
-  let bio = "hey admin these side";
+  // let bio = "hey admin these side";
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = generateOTP();
+    const otp = 123456;
 
-    const user = {
-      firstName,
-      lastName,
-      mobileNumber,
-      email,
-      password: hashedPassword,
-      otp,
-      role,
-      bio,
-    };
-
-    createUser(user, (err, result) => {
-      if (err) {
-        console.error("Error inserting user:", err);
-        return res.status(500).json({ message: "Database error." });
-      }
-
-      mailApi({
-        useremail: email,
-        fromName: "Admin Cafe_Cruises",
-        app_name: "cafe_cruises",
-        message: "please verify your otp with APP",
-        subject: "otp conformation",
-        app_logo: "",
-        generateotp: otp,
-      })
-        .then("otp send to Email working nicely")
-        .catch("error while sending otp on mail");
-
-      return res.status(201).json({
-        message: "Admin registered. Please Verify OTP Check Your email.",
+    let sql =
+      "insert into users (firstName,lastName,mobileNumber,email,password,otp,role,bio) values (?,?,?,?,?,?,?,?)";
+    connection.query(
+      sql,
+      [
+        firstName,
+        lastName,
+        mobileNumber,
+        email,
+        hashedPassword,
         otp,
-      });
-    });
+        role,
+        bio,
+      ],
+      (err, result) => {
+        if (err)
+          return res.status(500).json({
+            success: false,
+            message: "DB Error in Admin Register" + err.message,
+          });
+
+        mailApi({
+          useremail: email,
+          fromName: "Admin Cafe_Cruises",
+          app_name: "cafe_cruises",
+          message: "please verify your otp with APP",
+          subject: "otp conformation",
+          app_logo: "",
+          generateotp: otp,
+        })
+          .then("otp send to Email working nicely")
+          .catch("error while sending otp on mail");
+
+        return res.status(201).json({
+          message: "Admin registered. Please Verify OTP Check Your email.",
+          otp,
+        });
+      }
+    );
   } catch (error) {
     console.error("Error:", error);
     return res.status(500).json({ message: "Server error." });
@@ -71,40 +76,49 @@ export const AdminLogin = (req, res) => {
         .json({ message: "Mobile number and password are required." });
     }
 
-    findUserByMobile(mobileNumber, async (err, user) => {
-      if (err) {
-        console.error("Login error:", err);
-        return res.status(500).json({ message: "Server error during login." });
-      }
+    connection.query(
+      "select * from users where mobileNumber = ? ",
+      [mobileNumber],
+      async (err, user) => {
+        if (err) {
+          return res.status(500).json({
+            success: false,
+            message: "DB Server error during login Admin." + err.message,
+          });
+        }
 
-      if (!user) {
-        return res.status(404).json({ message: "User not found." });
-      }
+        if (user.length === 0) {
+          return res.status(200).json({
+            success: true,
+            message: "User not found for these mobile Number.",
+          });
+        }
 
-      if (user.isVerified !== 1) {
-        return res
-          .status(403)
-          .json({ message: "Please verify your account first." });
-      }
+        if (user[0].isVerified != 1) {
+          return res
+            .status(403)
+            .json({ message: "Please verify your account first." });
+        }
 
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      if (!passwordMatch) {
-        return res.status(401).json({ message: "Invalid credentials." });
-      }
+        const passwordMatch = await bcrypt.compare(password, user[0].password);
+        if (!passwordMatch) {
+          return res.status(401).json({ message: "Invalid credentials." });
+        }
 
-      if (user.role !== "admin")
-        return res.json({
-          success: false,
-          message: "You are not Admin , dont have access ",
+        if (user[0].role !== "admin")
+          return res.json({
+            success: false,
+            message: "You are not Admin , dont have access ",
+          });
+
+        const { password: _, otp, ...userInfo } = user[0];
+
+        return res.status(200).json({
+          message: "WelCome Admin",
+          user: userInfo,
         });
-
-      const { password: _, otp, ...userInfo } = user;
-
-      return res.status(200).json({
-        message: "WelCome Admin",
-        user: userInfo,
-      });
-    });
+      }
+    );
   } catch (error) {
     res.json({
       success: false,
@@ -114,27 +128,35 @@ export const AdminLogin = (req, res) => {
 };
 
 export const verifyOtpController = (req, res) => {
-  const { mobileNumber, otp } = req.body;
+  try {
+    const { mobileNumber, otp } = req.body;
 
-  findUserByMobile(mobileNumber, (err, user) => {
-    if (err || !user) {
-      return res.status(404).json({ message: "Admin not found." });
-    }
-
-    if (user.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP." });
-    }
-
-    verifyUserOtp(mobileNumber, (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: "Verification failed." });
+    connection.query(
+      "update users set isVerified = ? where mobileNumber = ? AND otp = ?",
+      [1, mobileNumber, otp],
+      (err, user) => {
+        if (err) {
+          return res.status(500).json({
+            success: false,
+            message: "DB ERROR ON VERIFY ADMIN OTP " + err.message,
+          });
+        }
+        if (user.length === 0)
+          return res.status(500).json({
+            success: false,
+            message: "User not found",
+          });
+        return res
+          .status(200)
+          .json({ message: "Account verified successfully." });
       }
-
-      return res
-        .status(200)
-        .json({ message: "Account verified successfully." });
+    );
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "error in verifY OTP Controller for admin " + error.message,
     });
-  });
+  }
 };
 
 export const createTrip = (req, res) => {
@@ -198,80 +220,94 @@ export const createTrip = (req, res) => {
 };
 
 export const addCity = (req, res) => {
-  const { cityName } = req.body;
-  const cityImage = req.file ? `/uploads/${req.file.filename}` : null;
+  try {
+    const { cityName } = req.body;
+    const cityImage = req.file ? `/uploads/${req.file.filename}` : null;
 
-  if (!cityName || !cityImage) {
-    return res
-      .status(400)
-      .json({ message: "cityName and cityImage are required." });
-  }
+    if (!cityName || !cityImage) {
+      return res
+        .status(400)
+        .json({ message: "cityName and cityImage are required." });
+    }
 
-  connection.query(
-    "SELECT * FROM city WHERE cityName = ?",
-    [cityName],
-    (err, results) => {
-      if (err) {
-        return res.status(500).json({
-          success: false,
-          message: "Database error",
-          error: err.message,
+    connection.query(
+      "SELECT * FROM city WHERE cityName = ?",
+      [cityName],
+      (err, results) => {
+        if (err) {
+          return res.status(500).json({
+            success: false,
+            message: "Database error",
+            error: err.message,
+          });
+        }
+
+        if (results.length > 0) {
+          return res.json({
+            success: false,
+            message: "City Name Already Exists",
+          });
+        }
+
+        const sql = "INSERT INTO city (cityName, cityImage) VALUES (?, ?)";
+        connection.query(sql, [cityName, cityImage], (err, result) => {
+          if (err) return res.status(500).json({ error: err });
+          res.status(201).json({
+            message: "City added successfully",
+            cityId: result.insertId,
+          });
         });
       }
-
-      if (results.length > 0) {
-        return res.json({
-          success: false,
-          message: "City Name Already Exists",
-        });
-      }
-
-      const sql = "INSERT INTO city (cityName, cityImage) VALUES (?, ?)";
-      connection.query(sql, [cityName, cityImage], (err, result) => {
-        if (err) return res.status(500).json({ error: err });
-        res.status(201).json({
-          message: "City added successfully",
-          cityId: result.insertId,
-        });
-      });
-    }
-  );
-};
-
-export const getAllBikes = (req, res) => {
-  connection.query("SELECT * FROM bikes", (err, result) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        error: "error in dataBase" + err.message,
-      });
-    }
-    res.status(200).json({
-      success: true,
-      bikes: result,
+    );
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error while adding new city" + error.message,
     });
-  });
+  }
 };
+
+// export const getAllBikes = (req, res) => {
+//   connection.query("SELECT * FROM bikes", (err, result) => {
+//     if (err) {
+//       return res.status(500).json({
+//         success: false,
+//         error: "error in dataBase" + err.message,
+//       });
+//     }
+//     res.status(200).json({
+//       success: true,
+//       bikes: result,
+//     });
+//   });
+// };
 
 export const createInsurance = (req, res) => {
-  const { insuranceAmount, accidentPayoutAmount } = req.body;
+  try {
+    const { insuranceAmount, accidentPayoutAmount } = req.body;
 
-  if (!insuranceAmount || !accidentPayoutAmount) {
-    return res.status(400).json({
-      message: "Both insuranceAmount and accidentPayoutAmount are required.",
-    });
-  }
-
-  const sql = `INSERT INTO Insurance (insuranceAmount, accidentPayoutAmount) VALUES (?, ?)`;
-  connection.query(
-    sql,
-    [insuranceAmount, accidentPayoutAmount],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({
-        message: "Insurance record created successfully",
-        id: result.insertId,
+    if (!insuranceAmount || !accidentPayoutAmount) {
+      return res.status(400).json({
+        message: "Both insuranceAmount and accidentPayoutAmount are required.",
       });
     }
-  );
+
+    const sql = `INSERT INTO Insurance (insuranceAmount, accidentPayoutAmount) VALUES (?, ?)`;
+    connection.query(
+      sql,
+      [insuranceAmount, accidentPayoutAmount],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.status(201).json({
+          message: "Insurance record created successfully",
+          id: result.insertId,
+        });
+      }
+    );
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "error in creating new insurence" + error.message,
+    });
+  }
 };

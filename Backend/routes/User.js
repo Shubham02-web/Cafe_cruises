@@ -11,9 +11,9 @@ import {
   resendOtp,
   rentBike,
   bookRide,
-  confirmRidePayment,
+  // confirmRidePayment,
   BookBikeAPI,
-  verifyRideOtp,
+  // verifyRideOtp,
   conformPaymentBook,
   OTPForBikeBook,
   initiateTripJoin,
@@ -22,8 +22,6 @@ import {
   verifyTripOTP,
   loginOTPVerification,
 } from "../controllers/UserAPIs/PostAPIs.js";
-
-// Importing GET APIs
 
 import {
   fetchBikesByUserID,
@@ -38,7 +36,6 @@ import {
   getUpcomingTripById,
   getUserById,
 } from "../controllers/UserAPIs/getAPIs.js";
-import { verifyOtpMiddleware } from "../middlewares/verifyOtpMiddleware.js";
 import upload from "../middlewares/uploads.js";
 import { bikeUpdate, updateUser } from "../controllers/UserAPIs/PutAPI.js";
 import { deleteBike } from "../controllers/UserAPIs/DeleteAPIs.js";
@@ -54,13 +51,13 @@ UserRouter.post("/register", register);
 UserRouter.post("/verify-otp", verifyOtpController);
 UserRouter.post("/login", login);
 UserRouter.post("/forgot-password/send-otp", forgotPasswordSendOtp);
-UserRouter.post("/forgot-password/reset", verifyOtpMiddleware, resetPassword);
+UserRouter.post("/forgot-password/reset", resetPassword);
 UserRouter.post("/resend-otp", resendOtp);
-UserRouter.post("/add-bike/:ownerId", upload.single("bikeImage"), rentBike);
+UserRouter.post("/add-bike/:id", upload.single("bikeImage"), rentBike);
 // UserRouter.post("/book-ride/:id", bookRide);
-UserRouter.post("/confirm-payment", confirmRidePayment);
+// UserRouter.post("/confirm-payment", confirmRidePayment);
 UserRouter.post("/book-bike", bookBike, BookBikeAPI);
-UserRouter.post("/verify-ride-otp", verifyRideOtp);
+// UserRouter.post("/verify-ride-otp", verifyRideOtp);
 UserRouter.post("/confirm-bike-payment", conformPaymentBook);
 UserRouter.post("/verify-bike-otp", OTPForBikeBook);
 UserRouter.post("/ask-to-join", initiateTripJoin);

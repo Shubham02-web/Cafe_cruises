@@ -21,7 +21,7 @@ export const getCityByName = (req, res) => {
 export const getBikes = async (req, res) => {
   console.log(req.params.id);
   connection.query(
-    "SELECT * FROM BikesOnRent where cityId = ?  ORDER BY createdAt DESC",
+    "SELECT id,bikeImage,bikeRent,bikeName,bikeModel,ownerId,cityId,isAdminApproved,manufecture,Manufecturing_Year FROM BikesOnRent where cityId = ? AND isAdminApproved = '1'  ORDER BY createdAt DESC",
     [req.params.id],
     async (err, bikes) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -186,7 +186,8 @@ export const getUpcomingTripById = (req, res) => {
 export const fetchBikesByUserID = async (req, res) => {
   const { id } = req.params;
   console.log("heyo" + id);
-  let sql = "select * from bikesonrent where ownerId = ?";
+  let sql =
+    "select id,bikeImage,bikeRent,bikeName,bikeModel,ownerId,cityId,isAdminApproved,manufecture,Manufecturing_Year from bikesonrent where ownerId = ?";
   connection.query(sql, [id], (err, bikes) => {
     if (err) {
       return res.status(500).json({

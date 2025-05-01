@@ -2,6 +2,7 @@ import express, { Router } from "express";
 import upload from "../middlewares/uploads.js";
 import {
   addChallan,
+  ClaimReimburished,
   confirmOTP,
   forgotPasswordSendOtpRider,
   // getBikes,
@@ -19,6 +20,11 @@ import {
 
 const RiderRoutes = express.Router();
 
+const claimChalan = upload.fields([
+  { name: "ChalanImage", maxCount: 1 },
+  { name: "RecieptImage", maxCount: 1 },
+]);
+
 // POST APIs
 
 RiderRoutes.post("/forgetPass", forgotPasswordSendOtpRider);
@@ -35,6 +41,7 @@ RiderRoutes.post(
   upload.single("chalanImage"),
   addChallan
 );
+RiderRoutes.post("/ClaimReimburished", claimChalan, ClaimReimburished);
 
 // Get APIs
 // RiderRoutes.get("/bikes", getBikes);

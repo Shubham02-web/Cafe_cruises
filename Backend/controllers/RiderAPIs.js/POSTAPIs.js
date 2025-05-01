@@ -42,142 +42,52 @@ export const registerRider = async (req, res) => {
 };
 
 export const confirmOTP = async (req, res) => {
-  const { email, otp } = req.body;
-  const sql = "SELECT * FROM riders WHERE email = ? AND otp = ?";
-  connection.query(sql, [email, otp], (err, results) => {
-    if (err) return res.status(500).json({ error: err });
-    if (results.length === 0)
-      return res.status(400).json({ message: "Invalid OTP or mobile" });
-
-    connection.query(
-      "UPDATE riders SET isVerified = 1 WHERE mobile = ?",
-      [email],
-      (err2) => {
-        if (err2) return res.status(500).json({ error: err2 });
-        res.json({ message: "Your account has been successfully verified!" });
-      }
-    );
-  });
-};
-
-export const loginRider = async (req, res, next) => {
-  const { email } = req.body;
-  let otp = "123456";
-
-  connection.query(
-    "update riders set otp = ?  WHERE email = ?",
-    [otp],
-    [email],
-    async (err, results) => {
+  try {
+    const { email, otp } = req.body;
+    const sql = "SELECT * FROM riders WHERE email = ? AND otp = ?";
+    connection.query(sql, [email, otp], (err, results) => {
       if (err) return res.status(500).json({ error: err });
       if (results.length === 0)
-        return res.status(400).json({ message: "Rider not found" });
-    }
-  );
-
-  mailApi({
-    useremail: email,
-    fromName: "Admin Cafe_Cruises",
-    app_name: "cafe_cruises",
-    message: "please verify your otp with APP",
-    subject: "otp conformation",
-    app_logo: "",
-    generateotp: otp,
-  })
-    .then("otp send to Email working nicely")
-    .catch("error while sending otp on mail");
-  res.json({
-    success: true,
-    message: "otp sended to your Registerd Email please verify it with otp ",
-  });
-};
-
-export const otpCheckedByMailVerifield = async (req, res) => {
-  const { mobile, otp } = req.body;
-  let sql =
-    "SELECT firstName , lastName FROM riders WHERE otp = ? AND mobile = ?";
-  connection.query(sql, [otp, mobile], (err, result) => {
-    if (err)
-      return res.status(500).json({
-        success: false,
-        message: "error DB " + err.message,
-      });
-
-    if (result.length < 1)
-      return res.status(404).json({
-        success: false,
-        message: "Data Not found",
-      });
-
-    res.status(200).json({
-      success: true,
-      message: "Rider login and otp  verification successfully",
-      result,
-    });
-  });
-};
-
-export const addChallan = async (req, res) => {
-  const { amount } = req.body;
-  const riderId = req.params.riderId;
-  const image = req.file ? req.file.filename : null;
-
-  connection.query(
-    "SELECT chalan FROM riders WHERE id = ?",
-    [riderId],
-    (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      const currentChalans = results[0]
-        ? results[0].chalan
-          ? JSON.parse(results[0].chalan)
-          : []
-        : null;
-      const newChalan = { image, amount };
-      currentChalans.push(newChalan);
+        return res.status(400).json({ message: "Invalid OTP or mobile" });
 
       connection.query(
-        "UPDATE riders SET chalan = ? WHERE id = ?",
-        [JSON.stringify(currentChalans), riderId],
+        "UPDATE riders SET isVerified = 1 WHERE email = ?",
+        [email],
         (err2) => {
           if (err2) return res.status(500).json({ error: err2 });
-          res.json({ message: "Chalan details saved successfully" });
+          res.json({ message: "Your account has been successfully verified!" });
         }
       );
-    }
-  );
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error in Conform OTP API" + error.message,
+    });
+  }
 };
 
-export const forgotPasswordSendOtpRider = (req, res) => {
-  const { email } = req.body;
-  let otp = "123456";
-  if (!email) {
-    return res.status(400).json({ message: "email is required." });
-  }
+export const loginRider = async (req, res) => {
+  try {
+    const { email } = req.body;
+    let otp = "123456";
 
-  let sql = "SELECT * FROM riders where email = ? ";
-  connection.query(sql, [email], (err, result) => {
-    if (err)
-      return res.status(500).json({
-        success: false,
-        message: "Error in DB" + err.message,
-      });
-    if (result.length < 1)
-      return res.json({
-        success: false,
-        message: "No Data Found For these Email",
-      });
-
-    if (result.length > 0) {
-      let sql = "update riders set otp = ? where email = ?";
-      connection.query(sql, [otp, email], (err, user) => {
+    connection.query(
+      "update riders set otp = ?  WHERE email = ?",
+      [otp],
+      [email],
+      async (err, results) => {
         if (err)
           return res.status(500).json({
             success: false,
-            message: "error in DB" + err.message,
+            message: "error in loginRider" + err.message,
           });
-        if (user.length < 1) return res.send("user not found");
-      });
-    }
+        if (results.length === 0)
+          return res
+            .status(200)
+            .json({ success: true, message: "Rider not found" });
+      }
+    );
 
     mailApi({
       useremail: email,
@@ -190,12 +100,143 @@ export const forgotPasswordSendOtpRider = (req, res) => {
     })
       .then("otp send to Email working nicely")
       .catch("error while sending otp on mail");
-
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "OTP Sended to Your Email",
+      message: "otp sended to your Registerd Email please verify it to login ",
     });
-  });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error in login Rider API" + error.message,
+    });
+  }
+};
+
+export const otpCheckedByMailVerifield = async (req, res) => {
+  try {
+    const { mobile, otp } = req.body;
+    let sql =
+      "SELECT firstName , lastName FROM riders WHERE otp = ? AND mobile = ?";
+    connection.query(sql, [otp, mobile], (err, result) => {
+      if (err)
+        return res.status(500).json({
+          success: false,
+          message: "error DB " + err.message,
+        });
+
+      if (result.length < 1)
+        return res.status(404).json({
+          success: false,
+          message: "Data Not found",
+        });
+
+      res.status(200).json({
+        success: true,
+        message: "Rider login and otp  verification successfully",
+        result,
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error in login OTP Check API for rider" + error.message,
+    });
+  }
+};
+
+export const addChallan = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const riderId = req.params.riderId;
+    const image = req.file ? req.file.filename : null;
+
+    connection.query(
+      "SELECT chalan FROM riders WHERE id = ?",
+      [riderId],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+        const currentChalans = results[0]
+          ? results[0].chalan
+            ? JSON.parse(results[0].chalan)
+            : []
+          : null;
+        const newChalan = { image, amount };
+        currentChalans.push(newChalan);
+
+        connection.query(
+          "UPDATE riders SET chalan = ? WHERE id = ?",
+          [JSON.stringify(currentChalans), riderId],
+          (err2) => {
+            if (err2) return res.status(500).json({ error: err2 });
+            res.json({ message: "Chalan details saved successfully" });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "error in Add Chalan APIs" + error.message,
+    });
+  }
+};
+
+export const forgotPasswordSendOtpRider = (req, res) => {
+  try {
+    const { email } = req.body;
+    let otp = "123456";
+    if (!email) {
+      return res.status(400).json({ message: "email is required." });
+    }
+
+    let sql = "SELECT * FROM riders where email = ? ";
+    connection.query(sql, [email], (err, result) => {
+      if (err)
+        return res.status(500).json({
+          success: false,
+          message: "Error in DB" + err.message,
+        });
+      if (result.length < 1)
+        return res.json({
+          success: false,
+          message: "No Data Found For these Email",
+        });
+
+      if (result.length > 0) {
+        let sql = "update riders set otp = ? where email = ?";
+        connection.query(sql, [otp, email], (err, user) => {
+          if (err)
+            return res.status(500).json({
+              success: false,
+              message: "error in DB" + err.message,
+            });
+          if (user.length < 1) return res.send("user not found");
+        });
+      }
+
+      mailApi({
+        useremail: email,
+        fromName: "Admin Cafe_Cruises",
+        app_name: "cafe_cruises",
+        message: "please verify your otp with APP",
+        subject: "otp conformation",
+        app_logo: "",
+        generateotp: otp,
+      })
+        .then("otp send to Email working nicely")
+        .catch("error while sending otp on mail");
+
+      res.status(200).json({
+        success: true,
+        message: "OTP Sended to Your Email",
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error in forgotPasswordSendOTPRider",
+    });
+  }
 };
 
 export const resetPasswordRider = async (req, res) => {
@@ -212,7 +253,12 @@ export const resetPasswordRider = async (req, res) => {
         console.error("Error updating password:", err);
         return res.status(500).json({ message: "Failed to reset password." });
       }
-      return res
+      if (result.length === 0)
+        return res.status(200).json({
+          success: true,
+          message: "unable to find user",
+        });
+      res
         .status(200)
         .json({ message: "Password updated successfully.", result });
     });
@@ -223,49 +269,66 @@ export const resetPasswordRider = async (req, res) => {
 };
 
 export const resendOtpRider = (req, res) => {
-  const { mobileNumber } = req.body;
+  try {
+    const { mobileNumber } = req.body;
 
-  if (!mobileNumber) {
-    return res.status(400).json({ message: "Mobile number is required." });
-  }
-  let email;
-
-  connection.query(
-    "select * from riders where mobile = ? ",
-    [mobileNumber],
-    (err, riders) => {
-      if (err)
-        return res.status(500).json({
-          success: false,
-          message: "error in db" + err.message,
-        });
-      if (riders.length < 1)
-        return res.send("rider not found for these mobile number");
-
-      email = riders[0].email;
-      console.log(email);
-
-      const newOtp = 123456;
-      mailApi({
-        useremail: email,
-        fromName: "Admin Cafe_Cruises",
-        app_name: "cafe_cruises",
-        message: "please verify your otp with APP",
-        subject: "otp conformation",
-        app_logo: "",
-        generateotp: newOtp,
-      })
-        .then("otp send to Email working nicely")
-        .catch("error while sending otp on mail");
-
-      connection.query("update riders set otp = ? where mobile = ? ");
-
-      res.status(200).json({
-        success: true,
-        message: "OTP Sended to Your Email",
-      });
+    if (!mobileNumber) {
+      return res.status(400).json({ message: "Mobile number is required." });
     }
-  );
+    let email;
+
+    connection.query(
+      "select * from riders where mobile = ? ",
+      [mobileNumber],
+      (err, riders) => {
+        if (err)
+          return res.status(500).json({
+            success: false,
+            message: "error in db" + err.message,
+          });
+        if (riders.length < 1)
+          return res.send("rider not found for these mobile number");
+
+        email = riders[0].email;
+        console.log(email);
+
+        const newOtp = 123456;
+        mailApi({
+          useremail: email,
+          fromName: "Admin Cafe_Cruises",
+          app_name: "cafe_cruises",
+          message: "please verify your otp with APP",
+          subject: "otp conformation",
+          app_logo: "",
+          generateotp: newOtp,
+        })
+          .then("otp send to Email working nicely")
+          .catch("error while sending otp on mail");
+
+        connection.query(
+          "update riders set otp = ? where mobile = ? ",
+          [newOtp, mobileNumber],
+          (err, result) => {
+            if (err)
+              return res.status(500).json({
+                success: false,
+                message: "DB Error in resend OTP Rider " + err.message,
+              });
+
+            res.status(200).json({
+              success: true,
+              message: "OTP Sended to Your Email",
+            });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error in resend OTP" + error.message,
+    });
+  }
 };
 
 // export const rentBike = (req, res) => {
@@ -325,3 +388,48 @@ export const resendOtpRider = (req, res) => {
 //     }
 //   );
 // };
+
+export const ClaimReimburished = async (req, res) => {
+  try {
+    const {
+      claimType,
+      riderId,
+      claimAmount,
+      fuelCosts,
+      TollCharges,
+      OtherExpenses,
+    } = req.body;
+    const RecieptImage = req.files ? req.files.RecieptImage[0].filename : null;
+    const ChalanImage = req.files ? req.files.ChalanImage[0].filename : null;
+
+    connection.query(
+      "insert into claims(claimType,riderId,claimAmount,fuelCosts,TollCharges,OtherExpenses,RecieptImage,ChalanImage) Values (?,?,?,?,?,?,?,?);",
+      [
+        claimType,
+        riderId,
+        claimAmount,
+        fuelCosts,
+        TollCharges,
+        OtherExpenses,
+        RecieptImage,
+        ChalanImage,
+      ],
+      (err, result) => {
+        if (err)
+          return res.status(500).json({
+            success: false,
+            message: "DB Error in submit Claim " + err.message,
+          });
+        res.status(200).json({
+          success: true,
+          message: "claim submited Successfully",
+        });
+      }
+    );
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error in Claim Reimburished Ammount",
+    });
+  }
+};
